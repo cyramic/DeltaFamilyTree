@@ -1,0 +1,20 @@
+# Data
+output
+data
+family.db
+family.db-shm
+family.db-wal
+tree.svg
+tree.dot
+tree.pdf
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv

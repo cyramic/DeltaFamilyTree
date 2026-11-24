@@ -1,0 +1,33 @@
+<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2"
+       BGCOLOR="{{ theme.focus_card_bg if person.is_focus_line else theme.card_bg }}"
+       COLOR="{{ theme.focus_card_border if person.is_focus_line else theme.card_border }}">
+  <TR>
+    <TD ALIGN="LEFT" BORDER="1" SIDES="B" CELLPADDING="2"
+        BGCOLOR="{{ theme.focus_header_bg if person.is_focus_line else theme.card_header_bg }}">
+      <FONT POINT-SIZE="11" COLOR="{{ theme.text_primary }}">{{ person.share_code }}: <B>{{ person.full_name }}</B></FONT>
+    </TD>
+  </TR>
+  <TR>
+    <TD ALIGN="LEFT" BORDER="0" CELLPADDING="1">
+      {%- if person.birth_label -%}
+        <FONT POINT-SIZE="10" COLOR="{{ theme.text_muted }}">b. {{ person.birth_flag_emoji }} {{ person.birth_label }}
+        {%- if person.birth_place -%}
+          <BR ALIGN="LEFT"/>in {{ person.birth_place }}
+        {%- endif -%}
+        </FONT>
+      {%- else -%}
+        <FONT POINT-SIZE="10" COLOR="{{ theme.text_muted }}">b. ?</FONT>
+      {%- endif -%}
+    </TD>
+  </TR>
+  {%- if person.bio_short -%}
+  <TR>
+    <TD ALIGN="LEFT" BORDER="0" CELLPADDING="0" BGCOLOR="{{ theme.card_header_bg }}"><FONT POINT-SIZE="10" COLOR="{{ theme.text_muted }}"><B>Info</B>: {{ person.bio_short }}</FONT></TD>
+  </TR>
+  {%- endif -%}
+  {%- if person.death_label -%}
+  <TR>
+    <TD ALIGN="LEFT" BORDER="0" CELLPADDING="1"><FONT POINT-SIZE="10" COLOR="{{ theme.text_muted }}">d. {{ person.death_flag_emoji }} {{ person.death_label }} (age {{ person.age_at_death_label }}){%- if person.death_place -%}<BR ALIGN="LEFT"/>in {{ person.death_place }}{%- endif -%}</FONT></TD>
+  </TR>
+  {%- endif -%}
+</TABLE>
