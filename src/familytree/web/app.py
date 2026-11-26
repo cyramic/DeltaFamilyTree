@@ -133,49 +133,78 @@ class FamilyTreeApp:
         people = self.repo.list_people()
         editing = self.repo.get_person(self.selected_person_id) if self.selected_person_id else None
 
-        with ui.card().classes("w-full mb-2 scroll-mt-4").props('id="person-form-card"') as self.person_form_card:
-            ui.label("Edit Person" if editing else "Add Person").classes("font-semibold text-base")
+        with ui.card().classes("w-full mb-2 p-3 gap-1 scroll-mt-4").props(
+                'id="person-form-card"') as self.person_form_card:
+            ui.label("Edit Person" if editing else "Add Person").classes("font-semibold text-sm leading-tight")
 
-            name_in = ui.input("Full Name *", value=editing.full_name if editing else "").classes("w-full")
-            with ui.row().classes("w-full gap-2"):
+            name_in = ui.input(
+                "Full Name *", value=editing.full_name if editing else ""
+            ).props("dense outlined").classes("w-full")
+
+            with ui.column().classes("w-full gap-1 mt-0.5"):
                 # Birth Date inputs
-                ui.label("Birth Date").classes("text-xs font-semibold text-stone-600 mt-1")
-                with ui.row().classes("w-full gap-2"):
-                    b_year = ui.input("Year (e.g. 1824 or c. 1812)",
-                                      value=(editing.birth_year or "") if editing else "").classes("flex-2")
-                    b_month = ui.number("Month (1-12)", value=(editing.birth_month or None) if editing else None, min=1,
-                                        max=12, precision=0).classes("flex-1")
-                    b_day = ui.number("Day (1-31)", value=(editing.birth_day or None) if editing else None, min=1,
-                                      max=31, precision=0).classes("flex-1")
+                ui.label("Birth Date").classes("text-[11px] font-semibold text-stone-600 leading-none")
+                with ui.row().classes("w-full flex-nowrap gap-1.5 items-center"):
+                    b_year = ui.input(
+                        "Year (e.g. 1824 or c. 1812)",
+                        value=(editing.birth_year or "") if editing else "",
+                    ).props("dense outlined").classes("flex-2 min-w-0")
+                    b_month = ui.number(
+                        "Month",
+                        value=(editing.birth_month or None) if editing else None,
+                        min=1,
+                        max=12,
+                        precision=0,
+                    ).props("dense outlined").classes("flex-1 min-w-0")
+                    b_day = ui.number(
+                        "Day",
+                        value=(editing.birth_day or None) if editing else None,
+                        min=1,
+                        max=31,
+                        precision=0,
+                    ).props("dense outlined").classes("flex-1 min-w-0")
 
                 # Death Date inputs
-                ui.label("Death Date").classes("text-xs font-semibold text-stone-600 mt-1")
-                with ui.row().classes("w-full gap-2"):
-                    d_year = ui.input("Year", value=(editing.death_year or "") if editing else "").classes("flex-2")
-                    d_month = ui.number("Month", value=(editing.death_month or None) if editing else None, min=1,
-                                        max=12, precision=0).classes("flex-1")
-                    d_day = ui.number("Day", value=(editing.death_day or None) if editing else None, min=1, max=31,
-                                      precision=0).classes("flex-1")
+                ui.label("Death Date").classes("text-[11px] font-semibold text-stone-600 leading-none mt-1")
+                with ui.row().classes("w-full flex-nowrap gap-1.5 items-center"):
+                    d_year = ui.input(
+                        "Year",
+                        value=(editing.death_year or "") if editing else "",
+                    ).props("dense outlined").classes("flex-2 min-w-0")
+                    d_month = ui.number(
+                        "Month",
+                        value=(editing.death_month or None) if editing else None,
+                        min=1,
+                        max=12,
+                        precision=0,
+                    ).props("dense outlined").classes("flex-1 min-w-0")
+                    d_day = ui.number(
+                        "Day",
+                        value=(editing.death_day or None) if editing else None,
+                        min=1,
+                        max=31,
+                        precision=0,
+                    ).props("dense outlined").classes("flex-1 min-w-0")
 
             place_in = ui.input(
                 "Birth / Home Place",
                 value=(editing.birth_place or "") if editing else "",
-            ).classes("w-full")
+            ).props("dense outlined").classes("w-full")
 
             place_death = ui.input(
                 "Death / Burial Place",
                 value=(editing.death_place or "") if editing else "",
-            ).classes("w-full")
+            ).props("dense outlined").classes("w-full")
 
             bio_in = ui.textarea(
                 "Short Card Bio (shown inside box)",
                 value=(editing.bio_short or "") if editing else "",
-            ).props("rows=2").classes("w-full")
+            ).props("dense outlined rows=2 autogrow=false").classes("w-full")
 
             focus_in = ui.checkbox(
                 "Focus Line (extends past early 1800s)",
                 value=editing.is_focus_line if editing else False,
-            )
+            ).props("dense").classes("text-xs mt-0.5")
 
             def save_person() -> None:
                 try:
@@ -333,16 +362,20 @@ class FamilyTreeApp:
 
         # Create Union Card
         with ui.card().classes("w-full mb-4"):
-            ui.label("Create Partnership / Union").classes("font-semibold text-base")
-            p1_sel = ui.select(person_options, label="Partner 1 *").classes("w-full")
+            ui.label("Create Partnership / Union").classes("font-semibold text-sm leading-tight")
+            p1_sel = ui.select(person_options, label="Partner 1 *").props("dense outlined").classes("w-full")
             p2_sel = ui.select(
-                person_options, label="Partner 2 (optional for single-parent lines)", clearable=True
-            ).classes("w-full")
-            ui.label("Marriage Date").classes("text-xs font-semibold text-stone-600 mt-1")
-            with ui.row().classes("w-full gap-2"):
-                m_year = ui.input("Year").classes("flex-2")
-                m_month = ui.number("Month", min=1, max=12, precision=0).classes("flex-1")
-                m_day = ui.number("Day", min=1, max=31, precision=0).classes("flex-1")
+                person_options,
+                label="Partner 2 (optional for single-parent lines)",
+                clearable=True,
+            ).props("dense outlined").classes("w-full")
+
+            ui.label("Marriage Date").classes("text-[11px] font-semibold text-stone-600 leading-none mt-0.5")
+            with ui.row().classes("w-full flex-nowrap gap-1.5 items-center"):
+                m_year = ui.input("Year").props("dense outlined").classes("flex-2 min-w-0")
+                m_month = ui.number("Month", min=1, max=12, precision=0).props("dense outlined").classes(
+                    "flex-1 min-w-0")
+                m_day = ui.number("Day", min=1, max=31, precision=0).props("dense outlined").classes("flex-1 min-w-0")
 
             def create_union() -> None:
                 if not p1_sel.value:
@@ -415,11 +448,13 @@ class FamilyTreeApp:
         # Link Child to Union Card
         union_options = {u.id: format_union_label(u) for u in unions}
 
-        with ui.card().classes("w-full"):
-            ui.label("Link Child to Parents").classes("font-semibold text-base")
-            u_sel = ui.select(union_options, label="Parental Union *").classes("w-full")
-            c_sel = ui.select(person_options, label="Child *").classes("w-full")
-            order_in = ui.number("Birth Order (1, 2, 3...)", min=1, precision=0).classes("w-full")
+        with ui.card().classes("w-full p-3 gap-1"):
+            ui.label("Link Child to Parents").classes("font-semibold text-sm leading-tight")
+            u_sel = ui.select(union_options, label="Parental Union *").props("dense outlined").classes("w-full")
+            c_sel = ui.select(person_options, label="Child *").props("dense outlined").classes("w-full")
+            order_in = ui.number(
+                "Birth Order (1, 2, 3...)", min=1, precision=0
+            ).props("dense outlined").classes("w-full")
 
             def link_child() -> None:
                 if not u_sel.value or not c_sel.value:
@@ -433,7 +468,7 @@ class FamilyTreeApp:
                 ui.notify("Child linked to union", type="positive")
                 self._refresh_all()
 
-            ui.button("Link Child", icon="child_care", on_click=link_child).classes("mt-2")
+            ui.button("Link Child", icon="child_care", on_click=link_child).props("dense").classes("mt-1")
 
     @ui.refreshable
     def _render_stories_panel(self) -> None:
@@ -520,11 +555,17 @@ class FamilyTreeApp:
             dialog.open()
 
         # Add Story Card
-        with ui.card().classes("w-full mb-3 p-3"):
-            ui.label("Add Linked Story Box").classes("font-semibold text-base")
-            target_sel = ui.select(all_targets, label="Attach To (Person or Couple) *").classes("w-full")
-            title_in = ui.input("Story Box Title *").classes("w-full")
-            body_in = ui.textarea("Story Narrative *").props("rows=4").classes("w-full")
+        with ui.card().classes("w-full mb-2 p-3 gap-1"):
+            ui.label("Add Linked Story Box").classes("font-semibold text-sm leading-tight")
+            target_sel = ui.select(
+                all_targets, label="Attach To (Person or Couple) *"
+            ).props("dense outlined").classes("w-full")
+            title_in = ui.input("Story Box Title *").props("dense outlined").classes("w-full")
+            body_in = (
+                ui.textarea("Story Narrative *")
+                .props("dense outlined rows=3 autogrow=false")
+                .classes("w-full")
+            )
 
             def save_story() -> None:
                 target = target_sel.value
