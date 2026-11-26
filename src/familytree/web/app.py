@@ -455,6 +455,7 @@ class FamilyTreeApp:
             order_in = ui.number(
                 "Birth Order (1, 2, 3...)", min=1, precision=0
             ).props("dense outlined").classes("w-full")
+            unc_in = ui.checkbox("Uncertain relationship").props("dense").classes("text-xs mt-0.5")
 
             def link_child() -> None:
                 if not u_sel.value or not c_sel.value:
@@ -463,6 +464,7 @@ class FamilyTreeApp:
                 self.repo.add_child_to_union(
                     union_id=u_sel.value,
                     child_id=c_sel.value,
+                    uncertain=bool(unc_in.value),
                     birth_order=int(order_in.value) if order_in.value else None,
                 )
                 ui.notify("Child linked to union", type="positive")

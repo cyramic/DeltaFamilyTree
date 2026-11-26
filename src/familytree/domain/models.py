@@ -170,6 +170,7 @@ class UnionChild(SQLModel, table=True):
     union_id: str = Field(foreign_key="unions.id", primary_key=True)
     child_id: str = Field(foreign_key="people.id", primary_key=True)
     birth_order: Optional[int] = Field(default=None, ge=1)
+    uncertain: bool = Field(default=False)
 
 
 class StoryNote(SQLModel, table=True):
