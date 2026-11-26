@@ -113,7 +113,6 @@ class FamilyTreeApp:
                     self._init_pan_zoom_js()
 
     # --- Refreshable UI Fragments ---
-
     @ui.refreshable
     def _render_svg_preview(self) -> None:
         snapshot = self.repo.get_snapshot()
@@ -134,7 +133,7 @@ class FamilyTreeApp:
         people = self.repo.list_people()
         editing = self.repo.get_person(self.selected_person_id) if self.selected_person_id else None
 
-        with ui.card().classes("w-full mb-4 scroll-mt-4").props('id="person-form-card"') as self.person_form_card:
+        with ui.card().classes("w-full mb-2 scroll-mt-4").props('id="person-form-card"') as self.person_form_card:
             ui.label("Edit Person" if editing else "Add Person").classes("font-semibold text-base")
 
             name_in = ui.input("Full Name *", value=editing.full_name if editing else "").classes("w-full")
@@ -241,6 +240,97 @@ class FamilyTreeApp:
         person_options = {p.id: f"{p.full_name} ({p.lifespan_label or '?'})" for p in people}
         unions = self.repo.list_unions()
 
+        def union_partners(u: Union) -> tuple[str, str]:
+            n1 = person_options.get(u.partner1_id, u.partner1_id)
+            n2 = person_options.get(u.partner2_id, "Single Parent") if u.partner2_id else "Single Parent"
+            return n1, n2
+
+        def format_union_label(u: Union) -> str:
+            n1, n2 = union_partners(u)
+            details = [f"{n1} + {n2}"]
+            if u.formatted_marriage_date:
+                details.append(u.formatted_marriage_date)
+            if u.location:
+                flag = f"{u.marriage_flag_emoji} " if u.marriage_flag_emoji else ""
+                details.append(f"{flag}{u.location}")
+            return " · ".join(details)
+
+        def matches_filter(u: Union, query: str, union_type: str) -> bool:
+            if union_type == "partnered" and not u.partner2_id:
+                return False
+            if union_type == "single" and u.partner2_id:
+                return False
+            q = query.strip().lower()
+            if not q:
+                return True
+            n1, n2 = union_partners(u)
+            haystack = " ".join(
+                filter(
+                    None,
+                    [
+                        n1,
+                        n2,
+                        u.marriage_year,
+                        u.formatted_marriage_date,
+                        u.location,
+                    ],
+                )
+            ).lower()
+            return q in haystack
+
+        def open_edit_dialog(union: Union) -> None:
+            with ui.dialog() as dialog, ui.card().classes("w-full max-w-md"):
+                ui.label("Edit Partnership / Union").classes("font-semibold text-lg")
+
+                p1_edit = ui.select(
+                    person_options, label="Partner 1 *", value=union.partner1_id
+                ).classes("w-full")
+                p2_edit = ui.select(
+                    person_options,
+                    label="Partner 2 (optional for single-parent lines)",
+                    value=union.partner2_id,
+                    clearable=True,
+                ).classes("w-full")
+
+                ui.label("Marriage Date").classes("text-xs font-semibold text-stone-600 mt-1")
+                with ui.row().classes("w-full gap-2"):
+                    year_edit = ui.input("Year", value=union.marriage_year or "").classes("flex-2")
+                    month_edit = ui.number(
+                        "Month", value=union.marriage_month, min=1, max=12, precision=0
+                    ).classes("flex-1")
+                    day_edit = ui.number(
+                        "Day", value=union.marriage_day, min=1, max=31, precision=0
+                    ).classes("flex-1")
+
+                loc_edit = ui.input("Location", value=union.location or "").classes("w-full")
+
+                def save_changes() -> None:
+                    if not p1_edit.value:
+                        ui.notify("Select at least Partner 1", type="warning")
+                        return
+                    try:
+                        updated = Union(
+                            id=union.id,
+                            partner1_id=p1_edit.value,
+                            partner2_id=p2_edit.value or None,
+                            marriage_year=year_edit.value.strip() or None,
+                            marriage_month=int(month_edit.value) if month_edit.value else None,
+                            marriage_day=int(day_edit.value) if day_edit.value else None,
+                            location=loc_edit.value.strip() or None,
+                        )
+                        self.repo.save_union(updated)
+                        dialog.close()
+                        ui.notify("Union updated", type="positive")
+                        self._refresh_all()
+                    except ValidationError as err:
+                        ui.notify(err.errors()[0]["msg"], type="negative")
+
+                with ui.row().classes("w-full justify-end gap-2 mt-3"):
+                    ui.button("Cancel", on_click=dialog.close).props("flat")
+                    ui.button("Save Changes", icon="save", on_click=save_changes)
+
+            dialog.open()
+
         # Create Union Card
         with ui.card().classes("w-full mb-4"):
             ui.label("Create Partnership / Union").classes("font-semibold text-base")
@@ -274,12 +364,56 @@ class FamilyTreeApp:
 
             ui.button("Add Union", icon="link", on_click=create_union).classes("mt-2")
 
+        # Existing Unions Card (Searchable, Filterable, Scrollable)
+        with ui.card().classes("w-full mb-4"):
+            with ui.row().classes("w-full items-center justify-between"):
+                ui.label("Existing Unions").classes("font-semibold text-base")
+                count_label = ui.label(f"{len(unions)} total").classes("text-xs text-stone-500")
+
+            with ui.row().classes("w-full gap-2 items-center"):
+                search_in = ui.input(
+                    placeholder="Search partner, year, or location..."
+                ).props("dense clearable outlined").classes("flex-2")
+                type_sel = ui.select(
+                    {
+                        "all": "All Unions",
+                        "partnered": "Partnered",
+                        "single": "Single Parent",
+                    },
+                    value="all",
+                ).props("dense outlined").classes("flex-1")
+
+            @ui.refreshable
+            def render_union_rows() -> None:
+                query_val = search_in.value or ""
+                type_val = type_sel.value or "all"
+                filtered = [u for u in unions if matches_filter(u, query_val, type_val)]
+                count_label.set_text(f"{len(filtered)} of {len(unions)}")
+
+                with ui.scroll_area().classes("w-full h-56 border border-stone-200 rounded px-1.5 py-1"):
+                    if not filtered:
+                        ui.label("No matching unions.").classes("text-xs text-stone-500 py-1 px-1")
+                    else:
+                        for u in filtered:
+                            with ui.row().classes(
+                                    "w-full flex-nowrap items-start justify-between gap-1 py-0.5 border-b border-stone-100 last:border-b-0"
+                            ):
+                                ui.label(format_union_label(u)).classes(
+                                    "flex-1 min-w-0 text-xs leading-tight break-words"
+                                )
+                                ui.button(
+                                    icon="edit",
+                                    on_click=lambda _, target=u: open_edit_dialog(target),
+                                ).props("flat dense round size=xs").classes("shrink-0").style(
+                                    "min-height: 22px; min-width: 22px; padding: 0;"
+                                )
+
+            search_in.on_value_change(lambda _: render_union_rows.refresh())
+            type_sel.on_value_change(lambda _: render_union_rows.refresh())
+            render_union_rows()
+
         # Link Child to Union Card
-        union_options = {}
-        for u in unions:
-            n1 = person_options.get(u.partner1_id, u.partner1_id)
-            n2 = person_options.get(u.partner2_id, "Single Parent") if u.partner2_id else "Single Parent"
-            union_options[u.id] = f"{n1} + {n2}"
+        union_options = {u.id: format_union_label(u) for u in unions}
 
         with ui.card().classes("w-full"):
             ui.label("Link Child to Parents").classes("font-semibold text-base")
@@ -312,7 +446,81 @@ class FamilyTreeApp:
         }
         all_targets = {**person_options, **union_options}
 
-        with ui.card().classes("w-full mb-4"):
+        def target_label(note: StoryNote) -> str:
+            if note.person_id:
+                return person_options.get(note.person_id, f"Person: {note.person_id}")
+            if note.union_id:
+                return union_options.get(note.union_id, f"Couple: {note.union_id}")
+            return "Unattached"
+
+        def current_target_id(note: StoryNote) -> str | None:
+            return note.person_id or note.union_id
+
+        def matches_note(note: StoryNote, query: str, attach_filter: str) -> bool:
+            if attach_filter == "person" and not note.person_id:
+                return False
+            if attach_filter == "union" and not note.union_id:
+                return False
+            q = query.strip().lower()
+            if not q:
+                return True
+            haystack = " ".join(
+                filter(
+                    None,
+                    [
+                        note.title,
+                        note.body,
+                        target_label(note),
+                    ],
+                )
+            ).lower()
+            return q in haystack
+
+        def open_edit_dialog(note: StoryNote) -> None:
+            with ui.dialog() as dialog, ui.card().classes("w-full max-w-lg"):
+                ui.label("Edit Story Box").classes("font-semibold text-lg")
+
+                target_edit = ui.select(
+                    all_targets,
+                    label="Attach To (Person or Couple) *",
+                    value=current_target_id(note),
+                ).classes("w-full")
+                title_edit = ui.input("Story Box Title *", value=note.title).classes("w-full")
+                body_edit = (
+                    ui.textarea("Story Narrative *", value=note.body)
+                    .props("rows=5")
+                    .classes("w-full")
+                )
+
+                def save_changes() -> None:
+                    target = target_edit.value
+                    if not target:
+                        ui.notify("Select a person or couple to attach this story to", type="warning")
+                        return
+                    is_person = target in person_options
+                    try:
+                        updated = StoryNote(
+                            id=note.id,
+                            title=title_edit.value.strip(),
+                            body=body_edit.value.strip(),
+                            person_id=target if is_person else None,
+                            union_id=None if is_person else target,
+                        )
+                        self.repo.save_story_note(updated)
+                        dialog.close()
+                        ui.notify("Story box updated", type="positive")
+                        self._refresh_all()
+                    except ValidationError as err:
+                        ui.notify(err.errors()[0]["msg"], type="negative")
+
+                with ui.row().classes("w-full justify-end gap-2 mt-3"):
+                    ui.button("Cancel", on_click=dialog.close).props("flat")
+                    ui.button("Save Changes", icon="save", on_click=save_changes)
+
+            dialog.open()
+
+        # Add Story Card
+        with ui.card().classes("w-full mb-3 p-3"):
             ui.label("Add Linked Story Box").classes("font-semibold text-base")
             target_sel = ui.select(all_targets, label="Attach To (Person or Couple) *").classes("w-full")
             title_in = ui.input("Story Box Title *").classes("w-full")
@@ -341,13 +549,61 @@ class FamilyTreeApp:
 
             ui.button("Attach Story Box", icon="note_add", on_click=save_story).classes("mt-2")
 
-        for note in snapshot.story_notes:
-            with ui.card().classes("w-full py-2 px-3 mb-1.5 flex-row items-center justify-between"):
-                ui.label(note.title).classes("text-sm font-medium")
-                ui.button(
-                    icon="delete",
-                    on_click=lambda nid=note.id: self._delete_note(nid),
-                ).props("flat dense size=sm color=negative")
+        # Search, Filter & Compact Notes List
+        with ui.card().classes("w-full p-3"):
+            with ui.row().classes("w-full items-center justify-between mb-1"):
+                ui.label("Linked Story Boxes").classes("font-semibold text-base")
+                count_label = ui.label(f"{len(snapshot.story_notes)} total").classes("text-xs text-stone-500")
+
+            with ui.row().classes("w-full gap-2 items-center mb-2"):
+                search_in = ui.input(
+                    placeholder="Search title, narrative, or person/couple..."
+                ).props("dense clearable outlined").classes("flex-2")
+                filter_sel = ui.select(
+                    {
+                        "all": "All Notes",
+                        "person": "People Only",
+                        "union": "Couples Only",
+                    },
+                    value="all",
+                ).props("dense outlined").classes("flex-1")
+
+            @ui.refreshable
+            def render_note_rows() -> None:
+                query_val = search_in.value or ""
+                filter_val = filter_sel.value or "all"
+                filtered = [n for n in snapshot.story_notes if matches_note(n, query_val, filter_val)]
+                count_label.set_text(f"{len(filtered)} of {len(snapshot.story_notes)}")
+
+                if not filtered:
+                    ui.label("No matching story boxes.").classes("text-xs text-stone-500 py-1")
+                    return
+
+                with ui.column().classes("w-full gap-1"):
+                    for n in filtered:
+                        with ui.row().classes(
+                                "w-full flex-nowrap items-center justify-between gap-2 py-1 px-2 border border-stone-200 rounded"
+                        ):
+                            with ui.column().classes("flex-1 min-w-0 gap-0"):
+                                ui.label(n.title).classes("text-xs font-semibold leading-tight truncate")
+                                ui.label(target_label(n)).classes("text-[11px] text-stone-500 leading-tight truncate")
+                            with ui.row().classes("shrink-0 items-center gap-0.5"):
+                                ui.button(
+                                    icon="edit",
+                                    on_click=lambda _, target_note=n: open_edit_dialog(target_note),
+                                ).props("flat dense round size=xs").style(
+                                    "min-height: 22px; min-width: 22px; padding: 0;"
+                                )
+                                ui.button(
+                                    icon="delete",
+                                    on_click=lambda _, nid=n.id: self._delete_note(nid),
+                                ).props("flat dense round size=xs color=negative").style(
+                                    "min-height: 22px; min-width: 22px; padding: 0;"
+                                )
+
+            search_in.on_value_change(lambda _: render_note_rows.refresh())
+            filter_sel.on_value_change(lambda _: render_note_rows.refresh())
+            render_note_rows()
 
     # --- UI Sort and Filter Helpers ---
     def _filtered_and_sorted_people(self, people: list) -> list:
