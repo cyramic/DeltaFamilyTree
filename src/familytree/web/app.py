@@ -265,6 +265,7 @@ class FamilyTreeApp:
 
     @ui.refreshable
     def _render_unions_panel(self) -> None:
+        snapshot = self.repo.get_snapshot()
         people = self.repo.list_people()
         person_options = {p.id: f"{p.full_name} ({p.lifespan_label or '?'})" for p in people}
         unions = self.repo.list_unions()
@@ -471,6 +472,240 @@ class FamilyTreeApp:
                 self._refresh_all()
 
             ui.button("Link Child", icon="child_care", on_click=link_child).props("dense").classes("mt-1")
+            # --- Existing Child-to-Parent Relationships (Filterable, Sortable, Scrollable) ---
+            # Expects child links with: union_id, child_id, birth_order, uncertain
+            child_links = getattr(snapshot, "union_children", None)
+            if child_links is None and hasattr(self.repo, "list_union_children"):
+                child_links = self.repo.list_union_children()
+            child_links = list(child_links or [])
+
+            unions_by_id = {u.id: u for u in unions}
+            people_by_id = {p.id: p for p in people}
+
+            def link_child_name(link) -> str:
+                child = people_by_id.get(link.child_id)
+                return child.full_name if child else link.child_id
+
+            def link_parents_label(link) -> str:
+                u = unions_by_id.get(link.union_id)
+                if not u:
+                    return link.union_id
+                n1, n2 = union_partners(u)
+                return f"{n1} + {n2}"
+
+            def link_birth_order_key(link) -> tuple[int, int]:
+                return (0, link.birth_order) if link.birth_order is not None else (1, 9999)
+
+            def matches_child_link(
+                    link,
+                    query: str,
+                    child_filter: str,
+                    parent_filter: str,
+                    certainty_filter: str,
+            ) -> bool:
+                if child_filter and child_filter != "all" and link.child_id != child_filter:
+                    return False
+                if parent_filter and parent_filter != "all" and link.union_id != parent_filter:
+                    return False
+                is_uncertain = bool(getattr(link, "uncertain", False))
+                if certainty_filter == "uncertain" and not is_uncertain:
+                    return False
+                if certainty_filter == "certain" and is_uncertain:
+                    return False
+
+                q = query.strip().lower()
+                if not q:
+                    return True
+                haystack = " ".join(
+                    filter(
+                        None,
+                        [
+                            link_child_name(link),
+                            link_parents_label(link),
+                            str(link.birth_order or ""),
+                            "uncertain dashed" if is_uncertain else "certain solid",
+                        ],
+                    )
+                ).lower()
+                return q in haystack
+
+            def sort_child_links(links: list, sort_mode: str) -> list:
+                if sort_mode == "child_asc":
+                    return sorted(links, key=lambda l: (link_child_name(l).lower(), link_parents_label(l).lower()))
+                if sort_mode == "child_desc":
+                    return sorted(links, key=lambda l: (link_child_name(l).lower(), link_parents_label(l).lower()),
+                                  reverse=True)
+                if sort_mode == "parents_asc":
+                    return sorted(links, key=lambda l: (link_parents_label(l).lower(), link_child_name(l).lower()))
+                if sort_mode == "parents_desc":
+                    return sorted(links, key=lambda l: (link_parents_label(l).lower(), link_child_name(l).lower()),
+                                  reverse=True)
+                if sort_mode == "order_asc":
+                    return sorted(links, key=lambda l: (link_birth_order_key(l), link_child_name(l).lower()))
+                if sort_mode == "uncertain_first":
+                    return sorted(links, key=lambda l: (0 if getattr(l, "uncertain", False) else 1,
+                                                        link_child_name(l).lower()))
+                return links
+
+            def open_edit_link_dialog(link) -> None:
+                with ui.dialog() as dialog, ui.card().classes("w-full max-w-md p-3 gap-2"):
+                    ui.label("Edit Parent-Child Link").classes("font-semibold text-base")
+
+                    u_edit = ui.select(
+                        union_options, label="Parental Union *", value=link.union_id
+                    ).props("dense outlined").classes("w-full")
+                    c_edit = ui.select(
+                        person_options, label="Child *", value=link.child_id
+                    ).props("dense outlined").classes("w-full")
+                    order_edit = ui.number(
+                        "Birth Order (1, 2, 3...)",
+                        value=link.birth_order,
+                        min=1,
+                        precision=0,
+                    ).props("dense outlined").classes("w-full")
+                    uncertain_edit = ui.checkbox(
+                        "Uncertain relationship (dashed line)",
+                        value=bool(getattr(link, "uncertain", False)),
+                    ).props("dense").classes("text-xs")
+
+                    def save_link_changes() -> None:
+                        if not u_edit.value or not c_edit.value:
+                            ui.notify("Select both a union and a child", type="warning")
+                            return
+                        new_order = int(order_edit.value) if order_edit.value else None
+                        new_uncertain = bool(uncertain_edit.value)
+
+                        # Replace link if union or child changed, otherwise update in place
+                        if u_edit.value != link.union_id or c_edit.value != link.child_id:
+                            self.repo.delete_child_from_union(link.union_id, link.child_id)
+                        self.repo.add_child_to_union(
+                            union_id=u_edit.value,
+                            child_id=c_edit.value,
+                            birth_order=new_order,
+                            uncertain=new_uncertain,
+                        )
+                        dialog.close()
+                        ui.notify("Relationship updated", type="positive")
+                        self._refresh_all()
+
+                    with ui.row().classes("w-full justify-end gap-2 mt-2"):
+                        ui.button("Cancel", on_click=dialog.close).props("flat dense")
+                        ui.button("Save Changes", icon="save", on_click=save_link_changes).props("dense")
+
+                dialog.open()
+
+            def delete_link(link) -> None:
+                self.repo.delete_child_from_union(link.union_id, link.child_id)
+                ui.notify("Relationship removed", type="info")
+                self._refresh_all()
+
+            child_filter_options = {"all": "All Children", **{p.id: p.full_name for p in people}}
+            parent_filter_options = {
+                "all": "All Parents / Unions",
+                **{u.id: format_union_label(u) for u in unions},
+            }
+
+            with ui.card().classes("w-full p-2.5 gap-1.5 mt-3"):
+                with ui.row().classes("w-full items-center justify-between"):
+                    ui.label("Parent–Child Relationships").classes("font-semibold text-sm leading-tight")
+                    rel_count_label = ui.label(f"{len(child_links)} total").classes("text-[11px] text-stone-500")
+
+                rel_search = ui.input(
+                    placeholder="Search child, parents, or order..."
+                ).props("dense clearable outlined").classes("w-full")
+
+                with ui.row().classes("w-full gap-1.5 items-center"):
+                    child_filter_sel = ui.select(
+                        child_filter_options, value="all", label="Child"
+                    ).props("dense outlined").classes("flex-1 min-w-0")
+                    parent_filter_sel = ui.select(
+                        parent_filter_options, value="all", label="Parents"
+                    ).props("dense outlined").classes("flex-1 min-w-0")
+
+                with ui.row().classes("w-full gap-1.5 items-center"):
+                    certainty_sel = ui.select(
+                        {
+                            "all": "All Lines",
+                            "uncertain": "Uncertain (Dashed)",
+                            "certain": "Certain (Solid)",
+                        },
+                        value="all",
+                        label="Line Style",
+                    ).props("dense outlined").classes("flex-1 min-w-0")
+
+                    rel_sort_sel = ui.select(
+                        {
+                            "child_asc": "Child (A–Z)",
+                            "child_desc": "Child (Z–A)",
+                            "parents_asc": "Parents (A–Z)",
+                            "parents_desc": "Parents (Z–A)",
+                            "order_asc": "Birth Order",
+                            "uncertain_first": "Uncertain First",
+                        },
+                        value="child_asc",
+                        label="Sort By",
+                    ).props("dense outlined").classes("flex-1 min-w-0")
+
+                @ui.refreshable
+                def render_relationship_rows() -> None:
+                    filtered = [
+                        l for l in child_links
+                        if matches_child_link(
+                            l,
+                            rel_search.value or "",
+                            child_filter_sel.value or "all",
+                            parent_filter_sel.value or "all",
+                            certainty_sel.value or "all",
+                        )
+                    ]
+                    ordered = sort_child_links(filtered, rel_sort_sel.value or "child_asc")
+                    rel_count_label.set_text(f"{len(ordered)} of {len(child_links)}")
+
+                    with ui.scroll_area().classes("w-full h-56 border border-stone-200 rounded px-1 py-0.5"):
+                        if not ordered:
+                            ui.label("No matching relationships.").classes("text-xs text-stone-500 py-1 px-1")
+                        else:
+                            for l in ordered:
+                                is_uncertain = bool(getattr(l, "uncertain", False))
+                                meta_parts = [f"Parents: {link_parents_label(l)}"]
+                                if l.birth_order is not None:
+                                    meta_parts.append(f"#{l.birth_order}")
+                                if is_uncertain:
+                                    meta_parts.append("Dashed (Uncertain)")
+
+                                with ui.row().classes(
+                                        "w-full flex-nowrap items-center justify-between gap-1 py-0.5 px-1 "
+                                        "border-b border-stone-100 last:border-b-0"
+                                ):
+                                    with ui.column().classes("flex-1 min-w-0 gap-0"):
+                                        ui.label(link_child_name(l)).classes(
+                                            "text-xs font-medium leading-tight truncate")
+                                        ui.label(" · ".join(meta_parts)).classes(
+                                            "text-[11px] leading-tight truncate "
+                                            + ("text-amber-700 font-medium" if is_uncertain else "text-stone-500")
+                                        )
+
+                                    with ui.row().classes("shrink-0 items-center gap-0.5"):
+                                        ui.button(
+                                            icon="edit",
+                                            on_click=lambda _, target=l: open_edit_link_dialog(target),
+                                        ).props("flat dense round size=xs").style(
+                                            "min-height: 22px; min-width: 22px; padding: 0;"
+                                        )
+                                        ui.button(
+                                            icon="delete",
+                                            on_click=lambda _, target=l: delete_link(target),
+                                        ).props("flat dense round size=xs color=negative").style(
+                                            "min-height: 22px; min-width: 22px; padding: 0;"
+                                        )
+
+                rel_search.on_value_change(lambda _: render_relationship_rows.refresh())
+                child_filter_sel.on_value_change(lambda _: render_relationship_rows.refresh())
+                parent_filter_sel.on_value_change(lambda _: render_relationship_rows.refresh())
+                certainty_sel.on_value_change(lambda _: render_relationship_rows.refresh())
+                rel_sort_sel.on_value_change(lambda _: render_relationship_rows.refresh())
+                render_relationship_rows()
+
 
     @ui.refreshable
     def _render_stories_panel(self) -> None:

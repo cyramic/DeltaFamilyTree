@@ -105,7 +105,14 @@ class TreeCompiler:
                 else self.config.theme.lineage_edge_color
             )
             penwidth = "2.0" if child.is_focus_line else "1.3"
-            dot.edge(union.id, child.id, color=edge_color, penwidth=penwidth)
+            edge_style = "dashed" if getattr(link, "uncertain", False) else "solid"
+            dot.edge(
+                union.id,
+                child.id,
+                color=edge_color,
+                penwidth=penwidth,
+                style=edge_style,
+            )
 
         # 4. Render StoryNote callout boxes and attach via dashed tethers
         for note in snapshot.story_notes:

@@ -14,6 +14,7 @@ class TreeSnapshot(BaseModel):
     unions: list[Union] = Field(default_factory=list)
     children: list[UnionChild] = Field(default_factory=list)
     story_notes: list[StoryNote] = Field(default_factory=list)
+    union_children: list[UnionChild] = Field(default_factory=list)
 
 
 class FamilyRepository:
@@ -148,6 +149,14 @@ class FamilyRepository:
                     )
                 ).all()
             )
+            union_children = list(
+                session.exec(
+                    select(UnionChild).order_by(
+                        UnionChild.union_id,
+                        UnionChild.birth_order.asc(),
+                    )
+                ).all()
+            )
             notes = list(session.exec(select(StoryNote)).all())
 
             return TreeSnapshot(
@@ -155,4 +164,5 @@ class FamilyRepository:
                 unions=unions,
                 children=children,
                 story_notes=notes,
+                union_children=union_children,
             )
