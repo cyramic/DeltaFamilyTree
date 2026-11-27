@@ -1,7 +1,8 @@
-from typing import Optional
 from uuid import uuid4
+
 from pydantic import model_validator
 from sqlmodel import Field, SQLModel
+
 from familytree.domain.flags import get_location_flag
 
 
@@ -9,7 +10,8 @@ def _new_id() -> str:
     """Short, Graphviz-safe alphanumeric ID (avoids hyphens in DOT node names)."""
     return f"n_{uuid4().hex[:10]}"
 
-def _parse_num_val(val: object) -> Optional[int]:
+
+def _parse_num_val(val: object) -> int | None:
     if val is None or isinstance(val, bool):
         return None
     if isinstance(val, int):
@@ -18,12 +20,28 @@ def _parse_num_val(val: object) -> Optional[int]:
     return int(s) if s.isdigit() else None
 
 
-def _format_date(year: Optional[str], month: Optional[int | str], day: Optional[int | str]) -> str:
+def _format_date(
+    year: str | None, month: int | str | None, day: int | str | None
+) -> str:
     if not year:
         return ""
-    month_names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    month_names = [
+        "",
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
 
-    m_int: Optional[int] = None
+    m_int: int | None = None
     if isinstance(month, int):
         m_int = month
     elif isinstance(month, str) and month.strip().isdigit():
@@ -40,17 +58,17 @@ class Person(SQLModel, table=True):
 
     id: str = Field(default_factory=_new_id, primary_key=True)
     full_name: str = Field(min_length=1, max_length=120, index=True)
-    birth_year: Optional[str] = None  # Keeps support for "c. 1812", "abt 1794", etc.
-    birth_month: Optional[int] = Field(default=None, ge=1, le=12)
-    birth_day: Optional[int] = Field(default=None, ge=1, le=31)
+    birth_year: str | None = None  # Keeps support for "c. 1812", "abt 1794", etc.
+    birth_month: int | None = Field(default=None, ge=1, le=12)
+    birth_day: int | None = Field(default=None, ge=1, le=31)
 
-    death_year: Optional[str] = None
-    death_month: Optional[int] = Field(default=None, ge=1, le=12)
-    death_day: Optional[int] = Field(default=None, ge=1, le=31)
+    death_year: str | None = None
+    death_month: int | None = Field(default=None, ge=1, le=12)
+    death_day: int | None = Field(default=None, ge=1, le=31)
 
-    birth_place: Optional[str] = Field(default=None, max_length=120)
-    death_place: Optional[str] = Field(default=None, max_length=120)
-    bio_short: Optional[str] = Field(
+    birth_place: str | None = Field(default=None, max_length=120)
+    death_place: str | None = Field(default=None, max_length=120)
+    bio_short: str | None = Field(
         default=None,
         max_length=400,
         description="Concise summary rendered inside the person's tree card",
@@ -59,7 +77,7 @@ class Person(SQLModel, table=True):
         default=False,
         description="Highlight branches extending past the early 1800s",
     )
-    share_code: Optional[int] = Field(default=None, unique=True)
+    share_code: int | None = Field(default=None, unique=True)
 
     @property
     def birth_label(self) -> str:
@@ -70,7 +88,7 @@ class Person(SQLModel, table=True):
         return f"{b}"
 
     @property
-    def age_at_death_label(self) -> Optional[str]:
+    def age_at_death_label(self) -> str | None:
         """Returns age as '65' when exact enough, '~65' when rough, or None."""
         b_year = _parse_num_val(self.birth_year)
         d_year = _parse_num_val(self.death_year)
@@ -135,17 +153,17 @@ class Union(SQLModel, table=True):
 
     id: str = Field(default_factory=_new_id, primary_key=True)
     partner1_id: str = Field(foreign_key="people.id", index=True)
-    partner2_id: Optional[str] = Field(
+    partner2_id: str | None = Field(
         default=None,
         foreign_key="people.id",
         index=True,
         description="Nullable when only one parent/ancestor is known in older lines",
     )
-    marriage_year: Optional[str] = None
-    marriage_month: Optional[int] = Field(default=None, ge=1, le=12)
-    marriage_day: Optional[int] = Field(default=None, ge=1, le=31)
+    marriage_year: str | None = None
+    marriage_month: int | None = Field(default=None, ge=1, le=12)
+    marriage_day: int | None = Field(default=None, ge=1, le=31)
 
-    location: Optional[str] = Field(default=None, max_length=120)
+    location: str | None = Field(default=None, max_length=120)
 
     @property
     def formatted_marriage_date(self) -> str:
@@ -169,7 +187,7 @@ class UnionChild(SQLModel, table=True):
 
     union_id: str = Field(foreign_key="unions.id", primary_key=True)
     child_id: str = Field(foreign_key="people.id", primary_key=True)
-    birth_order: Optional[int] = Field(default=None, ge=1)
+    birth_order: int | None = Field(default=None, ge=1)
     uncertain: bool = Field(default=False)
 
 
@@ -181,8 +199,8 @@ class StoryNote(SQLModel, table=True):
     id: str = Field(default_factory=_new_id, primary_key=True)
     title: str = Field(min_length=1, max_length=100)
     body: str = Field(min_length=1, max_length=1500)
-    person_id: Optional[str] = Field(default=None, foreign_key="people.id", index=True)
-    union_id: Optional[str] = Field(default=None, foreign_key="unions.id", index=True)
+    person_id: str | None = Field(default=None, foreign_key="people.id", index=True)
+    union_id: str | None = Field(default=None, foreign_key="unions.id", index=True)
 
     @model_validator(mode="after")
     def validate_single_anchor(self) -> "StoryNote":

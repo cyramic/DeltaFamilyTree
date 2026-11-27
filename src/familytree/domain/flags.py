@@ -5,15 +5,34 @@ def get_location_flag(birth_place: str | None) -> str:
 
     # Match common regions/countries to ISO 3166-1 alpha-2 codes
     code = None
-    if any(k in bp for k in ["wales", "cymru", "cardiff", "swansea", "newport", "welsh"]):
+    if any(
+        k in bp for k in ["wales", "cymru", "cardiff", "swansea", "newport", "welsh"]
+    ):
         return "🏴󠁧󠁢󠁷󠁬󠁳󠁿"  # Wales (Flag of Wales / Red Dragon)
-    elif any(k in bp for k in ["scotland", "edinburgh", "glasgow", "aberdeen", "dundee", "scottish"]):
+    elif any(
+        k in bp
+        for k in ["scotland", "edinburgh", "glasgow", "aberdeen", "dundee", "scottish"]
+    ):
         return "🏴󠁧󠁢󠁳󠁣󠁴󠁿"  # Scotland (The Saltire)
     elif any(k in bp for k in ["northern ireland", "belfast", "derry", "ulster"]):
         return "🏴"  # Northern Ireland
-    elif any(k in bp for k in
-             ["england", "london", "yorkshire", "manchester", "birmingham", "liverpool", "lancashire", "cornwall",
-              "devon", "essex", "kent", "surrey"]):
+    elif any(
+        k in bp
+        for k in [
+            "england",
+            "london",
+            "yorkshire",
+            "manchester",
+            "birmingham",
+            "liverpool",
+            "lancashire",
+            "cornwall",
+            "devon",
+            "essex",
+            "kent",
+            "surrey",
+        ]
+    ):
         return "🏴󠁧󠁢󠁥󠁮󠁧󠁿"  # England (St George's Cross)
 
     if any(k in bp for k in ["uk", "united kingdom", "britain", "great britain"]):

@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import typer
 
 from familytree.compiler.layout import LayoutConfig, PaperFormat
@@ -22,9 +23,13 @@ def serve(
 
 @app.command()
 def export(
-    paper: PaperFormat = typer.Option(PaperFormat.A1, help="Target ISO paper size (A0, A1, A2, AUTO)."),
+    paper: PaperFormat = typer.Option(
+        PaperFormat.A1, help="Target ISO paper size (A0, A1, A2, AUTO)."
+    ),
     orientation: str = typer.Option("landscape", help="landscape or portrait"),
-    out_dir: Path = typer.Option(Path("output"), help="Directory to write tree.svg, tree.pdf, and tree.dot"),
+    out_dir: Path = typer.Option(
+        Path("output"), help="Directory to write tree.svg, tree.pdf, and tree.dot"
+    ),
 ) -> None:
     """Compile the SQLite database directly to print-ready SVG, PDF, and DOT files."""
     init_db()
@@ -35,7 +40,9 @@ def export(
     compiler = TreeCompiler(config)
     paths = compiler.export_files(snapshot, out_dir)
 
-    typer.echo(f"Compiled {len(snapshot.people)} people and {len(snapshot.story_notes)} story boxes:")
+    typer.echo(
+        f"Compiled {len(snapshot.people)} people and {len(snapshot.story_notes)} story boxes:"
+    )
     for fmt, path in paths.items():
         typer.echo(f"  - {fmt.upper()}: {path.resolve()}")
 
@@ -68,7 +75,9 @@ def seed() -> None:
             is_focus_line=True,
         )
     )
-    u_1820 = repo.save_union(Union(partner1_id=thomas.id, partner2_id=sarah.id, marriage_year="1820"))
+    u_1820 = repo.save_union(
+        Union(partner1_id=thomas.id, partner2_id=sarah.id, marriage_year="1820")
+    )
 
     repo.save_story_note(
         StoryNote(
@@ -99,7 +108,9 @@ def seed() -> None:
     )
     repo.add_child_to_union(u_1820.id, arthur.id, birth_order=1)
 
-    u_1851 = repo.save_union(Union(partner1_id=arthur.id, partner2_id=clara.id, marriage_year="1851"))
+    u_1851 = repo.save_union(
+        Union(partner1_id=arthur.id, partner2_id=clara.id, marriage_year="1851")
+    )
     edward = repo.save_person(
         Person(
             full_name="Edward Miller",

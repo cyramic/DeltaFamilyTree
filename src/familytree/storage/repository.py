@@ -69,8 +69,12 @@ class FamilyRepository:
                     session.add(union)
                 else:
                     # Sole partner in this union: remove union notes, child links, and union
-                    session.exec(delete(StoryNote).where(StoryNote.union_id == union.id))
-                    session.exec(delete(UnionChild).where(UnionChild.union_id == union.id))
+                    session.exec(
+                        delete(StoryNote).where(StoryNote.union_id == union.id)
+                    )
+                    session.exec(
+                        delete(UnionChild).where(UnionChild.union_id == union.id)
+                    )
                     session.delete(union)
 
             # 4. Delete the person record itself
@@ -95,13 +99,22 @@ class FamilyRepository:
             return list(session.exec(select(Union)).all())
 
     def add_child_to_union(
-        self, union_id: str, child_id: str, uncertain: bool, birth_order: int | None = None
+        self,
+        union_id: str,
+        child_id: str,
+        uncertain: bool,
+        birth_order: int | None = None,
     ) -> UnionChild:
         """Links an existing Person as a child of a Union."""
         if not self.get_person(child_id):
             raise ValueError(f"Child person '{child_id}' does not exist.")
 
-        link = UnionChild(union_id=union_id, child_id=child_id, birth_order=birth_order, uncertain=uncertain)
+        link = UnionChild(
+            union_id=union_id,
+            child_id=child_id,
+            birth_order=birth_order,
+            uncertain=uncertain,
+        )
         with get_session(self._engine) as session:
             merged = session.merge(link)
             session.flush()

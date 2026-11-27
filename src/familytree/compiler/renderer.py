@@ -84,7 +84,9 @@ class TreeCompiler:
                 width="0.10",
                 height="0.10",
                 fixedsize="true",
-                tooltip=f"Married {union.marriage_year}" if union.marriage_year else "Union",
+                tooltip=f"Married {union.marriage_year}"
+                if union.marriage_year
+                else "Union",
             )
 
             if p1:
@@ -138,7 +140,7 @@ class TreeCompiler:
             body_lines=_wrap_text(note.body, width=35),
             theme=self.config.theme,
         )
-        #dot.node(note.id, label=f"<{html_label}>")
+        # dot.node(note.id, label=f"<{html_label}>")
         dot.node(note.id, label=f"<{html_label}>")
 
         # constraint="false" prevents the story box from artificially pushing
@@ -149,7 +151,7 @@ class TreeCompiler:
             style="dashed",
             color=self.config.theme.note_edge_color,
             penwidth="1.2",
-            #constraint="false",
+            # constraint="false",
         )
 
     def to_dot_source(self, snapshot: TreeSnapshot) -> str:
@@ -161,7 +163,9 @@ class TreeCompiler:
         dot = self.build_digraph(snapshot)
         return dot.pipe(format="svg").decode("utf-8")
 
-    def export_files(self, snapshot: TreeSnapshot, output_dir: Path = Path("output")) -> dict[str, Path]:
+    def export_files(
+        self, snapshot: TreeSnapshot, output_dir: Path = Path("output")
+    ) -> dict[str, Path]:
         """Writes DOT, print-ready SVG, and PDF files to disk."""
         output_dir.mkdir(parents=True, exist_ok=True)
         dot = self.build_digraph(snapshot)

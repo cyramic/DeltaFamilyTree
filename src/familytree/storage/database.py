@@ -28,7 +28,9 @@ def build_engine(database_url: str | None = None) -> Engine:
 
     # check_same_thread=False is required because NiceGUI runs UI callbacks
     # across FastAPI's event loop and background worker threads.
-    connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+    connect_args = (
+        {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+    )
 
     engine = create_engine(database_url, connect_args=connect_args)
 
