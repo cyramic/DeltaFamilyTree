@@ -1,7 +1,7 @@
 .PHONY: help format lint check run test clean
 
 # Use `uv run` if using uv, `.venv/bin/` if using a plain venv, or leave empty for global tools
-RUN ?= uv run
+RUN ?= uv run --env-file .env
 
 help:
 	@echo "Available targets:"
@@ -25,8 +25,11 @@ test:
 	$(RUN) pytest
 
 run:
-	$(RUN) python -m familytree.web.app
+	PYWEBVIEW_GUI=qt $(RUN) python -m familytree.web.app --system-site-packages
 
 clean:
 	rm -rf .pytest_cache .ruff_cache __pycache__
 	find . -type d -name "__pycache__" -exec rm -rf {} +
+
+build:
+	$(RUN) nicegui-pack --onefile --windowed --name "Delta Family Tree" --add-data "src/familytree/compiler/templates:familytree/compiler/templates" src/familytree/web/app.py

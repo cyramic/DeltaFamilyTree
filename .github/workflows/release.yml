@@ -1,0 +1,55 @@
+name: Build Release Binaries
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: Delta-Family-Tree-linux
+            exe_name: Delta Family Tree
+            data_sep: ":"
+          - os: windows-latest
+            artifact_name: Delta-Family-Tree-windows
+            exe_name: Delta Family Tree.exe
+            data_sep: ";"
+          - os: macos-latest
+            artifact_name: Delta-Family-Tree-macos
+            exe_name: Delta Family Tree
+            data_sep: ":"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python and dependencies
+        run: uv sync --frozen
+
+      - name: Build executable with nicegui-pack
+        env:
+          APP_MODE: desktop
+        run: >
+          uv run nicegui-pack --onefile --windowed
+          --name "Delta Family Tree"
+          --add-data "src/familytree/compiler/templates${{ matrix.data_sep }}familytree/compiler/templates"
+          src/familytree/web/app.py
+
+      - name: Upload binary to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ matrix.exe_name }}

@@ -1,6 +1,6 @@
+import os
 from pathlib import Path
-
-from nicegui import ui
+from nicegui import native, ui
 
 from familytree.compiler.layout import LayoutConfig, PaperFormat
 from familytree.compiler.renderer import TreeCompiler
@@ -166,23 +166,38 @@ class FamilyTreeApp:
         """)
 
 
-def start_server(port: int = 8080, reload: bool = False) -> None:
+def start_server(
+    port: int = 8080,
+    reload: bool = False,
+) -> None:
     """Initializes SQLite and launches the NiceGUI application."""
     init_db()
     repo = FamilyRepository()
+
+    is_desktop = os.getenv("APP_MODE", "desktop").strip().lower() == "desktop"
 
     @ui.page("/")
     def index_page() -> None:
         tree_app = FamilyTreeApp(repo)
         tree_app.build_ui()
 
-    ui.run(
-        title="Delta Family Tree Studio",
-        port=port,
-        reload=reload,
-        show=True,
-    )
+    run_kwargs = {
+        "title": "Delta Family Tree Studio",
+        "port": native.find_open_port() if is_desktop else port,
+        "reload": reload,
+        "native": is_desktop,
+    }
+
+    if is_desktop:
+        run_kwargs.update({
+            "window_size": (1024,768),
+            "frameless": False
+        })
+    else:
+        run_kwargs["show"] = True
+
+    ui.run(**run_kwargs)
 
 
 if __name__ in {"__main__", "__mp_main__"}:
-    start_server(reload=True)
+    start_server(reload=False)
